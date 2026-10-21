@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Treasure Hunt Challenge</title>
+<style>
+:root{--purple:#7137b8;--deep:#261346;--gold:#ffd166;--red:#d94343;--cream:#fff8e8}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:linear-gradient(160deg,#261346,#42236c 55%,#167c75);color:#fff;min-height:100vh}
+main{max-width:980px;margin:auto;padding:22px 16px 42px}.brand{text-align:center;margin:4px 0 20px}.brand h1{font-size:clamp(2rem,6vw,3.3rem);margin:0;color:var(--gold);text-shadow:0 3px 0 #8b5419}.brand p{margin:8px 0;color:#f4eaff}
+.panel{background:#fffaf0;color:#2e2140;border-radius:22px;padding:18px;margin:14px 0;box-shadow:0 10px 25px #16092b55}.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;min-width:140px}label{display:block;font-weight:700;margin-bottom:5px}input,button{font:inherit;border-radius:12px;padding:12px;border:2px solid #d8c9e9}input{width:100%;background:#fff}button{cursor:pointer;font-weight:800;border:0;background:var(--purple);color:white}button:disabled{opacity:.45;cursor:not-allowed}.secondary{background:#eadff6;color:#43215e}.danger{background:var(--red)}.gold{background:#f3bd3c;color:#442b00}.status{padding:10px 12px;border-radius:12px;background:#eee2fb;color:#44215e;font-weight:650;margin-top:10px}.hidden{display:none!important}.island{border-radius:20px;padding:18px;background:linear-gradient(145deg,#83d9ad,#2f9b7e);color:#153d36;position:relative;overflow:hidden}.island:before{content:"";position:absolute;width:240px;height:240px;border-radius:50%;background:#f7e4a6;opacity:.5;right:-70px;top:-80px}.island h2{position:relative;margin:0 0 4px}.island p{position:relative;margin:0 0 12px}.spots{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.spot{background:#fff8e8;color:#43215e;border:3px solid #fff;border-radius:16px;min-height:92px;padding:10px 5px;box-shadow:0 4px 0 #226a5a}.spot.selected{border-color:#7137b8;background:#ead8ff;transform:translateY(-2px)}.spot .emoji{font-size:1.7rem;display:block}.spot small{display:block;font-size:.75rem}.players{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}.player{border:2px solid #eadff6;border-radius:12px;padding:10px}.player strong{display:block}.pill{display:inline-block;border-radius:999px;padding:4px 9px;background:#eadff6;color:#43215e;font-size:.8rem;font-weight:800}.feed{max-height:190px;overflow:auto;font-size:.92rem}.feed p{margin:6px 0;padding-bottom:6px;border-bottom:1px solid #eee}.footer{text-align:center;color:#e8d9fa;font-size:.85rem;margin-top:20px}@media(max-width:520px){.spots{grid-template-columns:repeat(2,minmax(0,1fr))}.panel{padding:14px}}
+</style></head>
+<body><main>
+<header class="brand"><h1>🏝️ Treasure Hunt</h1><p>Pick a path. Find treasure. Outsmart the island.</p></header>
+<section id="joinPanel" class="panel">
+<h2>Start or join a hunt</h2>
+<p>Play with 2–8 people. Share the room code with your friends.</p>
+<div class="row"><div><label for="playerName">Your name</label><input id="playerName" maxlength="18" placeholder="e.g. Captain Jo"></div><div><label for="roomCode">Room code (to join)</label><input id="roomCode" maxlength="6" placeholder="Leave blank to create"></div></div>
+<div class="row" style="margin-top:12px"><button id="startBtn">Create / Join Room</button></div>
+<div id="joinStatus" class="status" role="status">Enter your name, then create a new room or enter a code to join.</div>
+</section>
+<section id="gamePanel" class="hidden">
+<div class="panel"><div class="row" style="align-items:center"><div><span class="pill" id="roomBadge">ROOM —</span><h2 id="roundHeading">Round 1 of 5</h2></div><div><button class="secondary" id="copyBtn">Copy room code</button></div></div><div id="gameStatus" class="status">Waiting for players...</div></div>
+<div class="panel island"><h2>🌴 Choose a hidden location</h2><p>Your choice stays secret until everyone is ready.</p><div class="spots" id="spots"></div><div style="margin-top:14px"><button id="lockBtn" class="gold" disabled>Lock in my choice</button> <button id="revealBtn" class="secondary hidden">Reveal choices (host)</button></div></div>
+<div class="panel"><h2>🏆 Scores & players</h2><div id="players" class="players"></div></div>
+<div class="panel"><h2>📜 Treasure log</h2><div id="feed" class="feed"><p>The hunt is waiting to begin.</p></div><button id="nextBtn" class="hidden">Start next round (host)</button><button id="resetBtn" class="secondary hidden">New hunt (host)</button></div>
+</section>
+<div class="footer">A friendly prototype • Treasure rewards: 5, 10, 20, or 50 points</div>
+</main>
+<script>
+const API='/.netlify/functions/game';
+const $=id=>document.getElementById(id);
+let state=null, playerId=localStorage.getItem('th-player-id')||crypto.randomUUID(), selected=null, poller=null;
+localStorage.setItem('th-player-id',playerId);
+const emojis=['🪨','🌴','🏖️','🗿','🌊','🌺'];
+function setStatus(msg,join=false){$(join?'joinStatus':'gameStatus').textContent=msg}
+async function api(action,data={}){const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action,playerId,...data})});const j=await r.json();if(!r.ok)throw new Error(j.error||'Something went wrong');return j}
+function drawSpots(){const el=$('spots');el.innerHTML='';for(let i=0;i<6;i++){const b=document.createElement('button');b.className='spot'+(selected===i?' selected':'');b.innerHTML=`<span class="emoji">${emojis[i]}</span><strong>Location ${i+1}</strong><small>Hidden surprise</small>`;b.onclick=()=>{selected=i;drawSpots();$('lockBtn').disabled=false};el.appendChild(b)}}
+function render(){if(!state)return;$('joinPanel').classList.add('hidden');$('gamePanel').classList.remove('hidden');$('roomBadge').textContent='ROOM '+state.code;$('roundHeading').textContent=state.finished?'🏆 Hunt complete!':`Round ${state.round} of 5`;const me=state.players.find(p=>p.id===playerId);$('gameStatus').textContent=state.finished?`Winner: ${state.winner?.name||'Tie game'}!`:state.phase==='lobby'?`Share code ${state.code}. Waiting for at least 2 players to start.`:state.phase==='choosing'?`${state.choicesCount||0} of ${state.players.length} players have locked in a location.`:'Round revealed! Check the treasure log.';const p=$('players');p.innerHTML='';[...state.players].sort((a,b)=>b.score-a.score).forEach((pl,i)=>{const d=document.createElement('div');d.className='player';d.innerHTML=`<strong>${i===0?'👑 ':''}${escapeHtml(pl.name)} ${pl.id===playerId?'(you)':''}</strong><div>${pl.score} points</div><div>${pl.shield?'🛡️ Lucky Shield':''}</div>`;p.appendChild(d)});const f=$('feed');f.innerHTML='';(state.log||[]).slice().reverse().forEach(line=>{const x=document.createElement('p');x.textContent=line;f.appendChild(x)});$('lockBtn').disabled=selected===null||state.phase!=='choosing'||!!(me&&me.locked);$('revealBtn').classList.toggle('hidden',!(state.hostId===playerId&&state.phase==='choosing'));$('nextBtn').classList.toggle('hidden',!(state.hostId===playerId&&state.phase==='revealed'&&!state.finished));$('resetBtn').classList.toggle('hidden',!(state.hostId===playerId&&state.finished));if(state.phase==='lobby'&&state.hostId===playerId&&state.players.length>=2){$('gameStatus').textContent='Ready! Start the first round when everyone is in.';$('revealBtn').classList.remove('hidden');$('revealBtn').textContent='Start round 1'} }
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+async function refresh(){try{if(state){const r=await api('state',{code:state.code});state=r.state;render()}}catch(e){setStatus(e.message)}}
+$('startBtn').onclick=async()=>{try{const name=$('playerName').value.trim();if(!name)throw Error('Please enter your name first.');const code=$('roomCode').value.trim().toUpperCase();const r=await api(code?'join':'create',{name,code});state=r.state;selected=null;drawSpots();render();if(poller)clearInterval(poller);poller=setInterval(refresh,1800)}catch(e){setStatus(e.message,true)}};
+$('copyBtn').onclick=async()=>{try{await navigator.clipboard.writeText(state.code);setStatus('Room code copied! Send it to your friends.')}catch(e){setStatus('Your room code is '+state.code)}};
+$('lockBtn').onclick=async()=>{try{const r=await api('choose',{code:state.code,location:selected});state=r.state;render()}catch(e){setStatus(e.message)}};
+$('revealBtn').onclick=async()=>{try{const action=state.phase==='lobby'?'start':'reveal';const r=await api(action,{code:state.code});state=r.state;selected=null;render()}catch(e){setStatus(e.message)}};
+$('nextBtn').onclick=async()=>{try{const r=await api('next',{code:state.code});state=r.state;selected=null;render()}catch(e){setStatus(e.message)}};
+$('resetBtn').onclick=async()=>{try{const r=await api('reset',{code:state.code});state=r.state;selected=null;render()}catch(e){setStatus(e.message)}};
+drawSpots();
+</script></body></html>

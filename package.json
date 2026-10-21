@@ -1,0 +1,10 @@
+{
+  "name": "treasure-hunt-challenge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Real-time multiplayer Treasure Hunt Challenge for 2–8 players",
+  "dependencies": {
+    "@netlify/blobs": "^8.2.0"
+  }
+}
