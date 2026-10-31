@@ -1,11 +1,7 @@
 import { getStore } from "@netlify/blobs";
 
 const store = getStore({ name: "treasure-hunt-rooms", consistency: "strong" });
-const json = (body, statusCode=200) => ({
-  statusCode,
-  headers: { "content-type": "application/json", "cache-control": "no-store" },
-  body: JSON.stringify(body)
-});
+
 const codeGen = () => Math.random().toString(36).slice(2,8).toUpperCase();
 const points = [5,10,20,50];
 const safeName = s => String(s || "Player").trim().slice(0,18) || "Player";
@@ -24,7 +20,7 @@ function beginRound(room) { room.phase="choosing"; room.choices={}; room.log.uns
 export default async (req) => {
   if (req.method !== "POST") return json({error:"Use POST for game actions."},405);
   try {
-    const body = JSON.parse(req.body || "{}");
+   const body = await req.json();
     const {action, playerId} = body;
     const code = String(body.code || "").toUpperCase();
     let room;
